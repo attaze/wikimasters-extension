@@ -1,6 +1,6 @@
 #wm-sorter-container {
   position: fixed; top: 90px; left: calc(100vw - 70px);
-  z-index: 2147483647; font-family: ui-sans-serif, system-ui, sans-serif; user-select: none;
+  z-index: 2147483645; font-family: ui-sans-serif, system-ui, sans-serif; user-select: none;
 }
 
 #wm-sorter-fab {
@@ -11,13 +11,13 @@
 #wm-sorter-fab:hover { background-color: rgba(24, 24, 27, 0.95); border-color: #10b981; }
 
 #wm-sorter-widget {
-  width: 220px; background-color: rgba(9, 9, 11, 0.75); backdrop-filter: blur(12px);
+  width: 225px; background-color: rgba(9, 9, 11, 0.8); backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-shadow: 0 16px 32px rgba(0, 0, 0, 0.6);
-  color: #fafafa; display: none; flex-direction: column; overflow: hidden; transition: height 0.3s;
+  color: #fafafa; display: none; flex-direction: column; overflow: hidden;
 }
 
 #wm-sorter-header {
-  background-color: rgba(0, 0, 0, 0.2); padding: 8px 12px; cursor: grab; font-weight: 600; font-size: 12px;
+  background-color: rgba(0, 0, 0, 0.25); padding: 8px 12px; cursor: grab; font-weight: 600; font-size: 12px;
   border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;
 }
 .wm-header-title { display: flex; align-items: center; gap: 6px; color: #e4e4e7; }
@@ -30,12 +30,12 @@
 .wm-tracker-mini { background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; }
 .wm-tracker-label { font-size: 11px; color: #10b981; font-weight: 600; }
 .wm-tracker-value { font-size: 13px; font-weight: 800; color: #34d399; }
-.wm-shortcut-info { background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 8px; font-size: 11px; color: #fbbf24; text-align: center; line-height: 1.4;}
+.wm-shortcut-info { background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 8px; font-size: 11px; color: #fbbf24; text-align: center; line-height: 1.4; }
 
 .wm-select-mini { background-color: rgba(24, 24, 27, 0.6); color: #e4e4e7; border: 1px solid rgba(255,255,255,0.1); padding: 6px 8px; border-radius: 6px; font-size: 11px; outline: none; cursor: pointer; }
 .wm-toggle-mini { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #a1a1aa; cursor: pointer; padding: 2px 0; }
 .wm-checkbox-mini { accent-color: #10b981; width: 13px; height: 13px; cursor: pointer; margin: 0; }
-.wm-button-mini { background-color: #10b981; color: #022c22; border: none; padding: 8px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; flex: 1; }
+.wm-button-mini { background-color: #10b981; color: #022c22; border: none; padding: 8px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; flex: 1; text-align: center; justify-content: center; }
 .wm-button-mini:hover { background-color: #34d399; }
 .wm-button-mini:disabled { background-color: #27272a; color: #71717a; cursor: not-allowed; }
 .wm-status-mini { font-size: 10px; color: #a1a1aa; text-align: center; min-height: 14px; }
@@ -46,3 +46,125 @@
   font-weight: 800 !important; font-size: 11px !important; line-height: 1.2 !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6) !important; transform: translateZ(0); border: 1px solid rgba(255,255,255,0.15) !important; backdrop-filter: blur(4px) !important;
 }
+
+/* === MODALE DE RÉCAPITULATIF DES TIRAGES (GRAND FORMAT LISIBLE) === */
+#wm-loot-modal {
+  position: fixed; inset: 0; background: rgba(5, 5, 7, 0.92); backdrop-filter: blur(14px);
+  z-index: 2147483646; display: none; flex-direction: column; align-items: center; padding: 28px 20px;
+  font-family: ui-sans-serif, system-ui, sans-serif; color: #fafafa;
+}
+
+.wm-loot-topbar {
+  width: 100%; max-width: 1380px; display: flex; justify-content: space-between; align-items: center;
+  padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap; gap: 12px;
+}
+
+.wm-loot-title-wrap { display: flex; flex-direction: column; gap: 4px; }
+.wm-loot-title { font-size: 22px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; }
+.wm-loot-stats { display: flex; gap: 8px; font-size: 12px; color: #a1a1aa; flex-wrap: wrap; }
+.wm-stat-pill { padding: 2px 8px; border-radius: 999px; font-weight: 700; font-size: 11px; background: rgba(255,255,255,0.06); }
+
+.wm-loot-actions { display: flex; gap: 10px; }
+.wm-modal-btn {
+  background: #27272a; color: #fafafa; border: 1px solid rgba(255,255,255,0.1); padding: 8px 16px;
+  border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s;
+}
+.wm-modal-btn:hover { background: #3f3f46; }
+.wm-modal-btn-primary { background: #10b981; color: #022c22; border-color: transparent; font-weight: 700; }
+.wm-modal-btn-primary:hover { background: #34d399; }
+
+#wm-loot-grid {
+  width: 100%; max-width: 1380px; flex: 1; overflow-y: auto;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+  gap: 20px; padding: 6px 10px 30px 6px; align-content: start;
+}
+#wm-loot-grid::-webkit-scrollbar { width: 8px; }
+#wm-loot-grid::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+
+/* Grande Carte Lisible */
+.wm-pull-card {
+  background: #121215; border-radius: 14px; border: 2px solid #27272a;
+  display: flex; flex-direction: column; overflow: hidden; cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease; height: 350px; position: relative;
+}
+.wm-pull-card:hover { transform: translateY(-5px); }
+
+.wm-pull-card-media {
+  position: relative; width: 100%; height: 145px; background: #1c1c21; overflow: hidden; flex-shrink: 0;
+}
+.wm-pull-card-img { width: 100%; height: 100%; object-fit: cover; }
+.wm-pull-card-noimg {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 26px; font-weight: 900; color: rgba(255,255,255,0.12); letter-spacing: 2px;
+}
+
+.wm-pull-badge {
+  position: absolute; top: 10px; left: 10px; padding: 3px 9px; border-radius: 6px;
+  font-size: 11px; font-weight: 900; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+.wm-pull-card-body {
+  padding: 12px 14px; display: flex; flex-direction: column; flex: 1; overflow: hidden; gap: 6px;
+}
+.wm-pull-card-title {
+  font-size: 14px; font-weight: 800; color: #fff; line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.wm-pull-card-cat {
+  font-size: 11px; color: #a1a1aa; font-style: italic;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
+}
+.wm-pull-card-desc {
+  font-size: 12px; color: #d4d4d8; line-height: 1.45; overflow-y: auto; flex: 1; padding-right: 4px;
+}
+.wm-pull-card-desc::-webkit-scrollbar { width: 4px; }
+.wm-pull-card-desc::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+
+.wm-pull-card-footer {
+  padding: 8px 14px; background: rgba(0,0,0,0.3); border-top: 1px solid rgba(255,255,255,0.05);
+  display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; flex-shrink: 0;
+}
+.wm-stat-atk { color: #f87171; }
+.wm-stat-def { color: #60a5fa; }
+
+/* Thèmes de Rareté (L > UR > SR > R > PC > C) */
+.wm-pull-card[data-rarity="L"] { border-color: #eab308; box-shadow: 0 0 20px rgba(234, 179, 8, 0.28); }
+.wm-pull-card[data-rarity="L"] .wm-pull-badge { background: linear-gradient(135deg, #fef08a, #eab308); color: #422006; }
+
+.wm-pull-card[data-rarity="UR"] { border-color: #f59e0b; box-shadow: 0 0 16px rgba(245, 158, 11, 0.22); }
+.wm-pull-card[data-rarity="UR"] .wm-pull-badge { background: #f59e0b; color: #451a03; }
+
+.wm-pull-card[data-rarity="SR"] { border-color: #d946ef; box-shadow: 0 0 14px rgba(217, 70, 239, 0.2); }
+.wm-pull-card[data-rarity="SR"] .wm-pull-badge { background: #d946ef; color: #fff; }
+
+.wm-pull-card[data-rarity="R"] { border-color: #3b82f6; }
+.wm-pull-card[data-rarity="R"] .wm-pull-badge { background: #3b82f6; color: #fff; }
+
+.wm-pull-card[data-rarity="PC"] { border-color: #22c55e; }
+.wm-pull-card[data-rarity="PC"] .wm-pull-badge { background: #22c55e; color: #052e16; }
+
+.wm-pull-card[data-rarity="C"] { border-color: #3f3f46; }
+.wm-pull-card[data-rarity="C"] .wm-pull-badge { background: #71717a; color: #fff; }
+
+/* === ZOOM CARTE AU CLIC (COMME DANS LA COLLECTION) === */
+#wm-card-detail-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px);
+  z-index: 2147483647; display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.wm-detail-box {
+  width: 100%; max-width: 440px; background: #18181b; border: 2px solid #3f3f46; border-radius: 18px;
+  overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.8); display: flex; flex-direction: column;
+  max-height: 90vh; color: #fafafa;
+}
+.wm-detail-media { position: relative; width: 100%; height: 240px; background: #09090b; flex-shrink: 0; }
+.wm-detail-media img { width: 100%; height: 100%; object-fit: contain; background: #09090b; }
+.wm-detail-content { padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.wm-detail-title { font-size: 20px; font-weight: 800; color: #fff; margin: 0; }
+.wm-detail-cat { font-size: 13px; color: #a1a1aa; font-style: italic; }
+.wm-detail-desc { font-size: 14px; color: #e4e4e7; line-height: 1.6; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; }
+.wm-detail-actions { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; gap: 10px; }
+.wm-wiki-link {
+  color: #10b981; font-size: 13px; font-weight: 700; text-decoration: none;
+  padding: 8px 12px; border-radius: 8px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.wm-wiki-link:hover { background: rgba(16, 185, 129, 0.2); }

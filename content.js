@@ -1,6 +1,10 @@
 (function () {
   const existing = document.getElementById('wm-sorter-container');
   if (existing) existing.remove();
+  const existingModal = document.getElementById('wm-loot-modal');
+  if (existingModal) existingModal.remove();
+  const existingDetail = document.getElementById('wm-card-detail-overlay');
+  if (existingDetail) existingDetail.remove();
 
   const CACHE_KEY = 'wm_market_prices_v6';
   const AUTO_SORT_KEY = 'wm_auto_sort_enabled';
@@ -9,6 +13,12 @@
   const OPEN_STATE_KEY = 'wm_widget_open';
   const CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
   const CONCURRENCY_LIMIT = 3;
+
+  // Ordre de rareté officiel WikiMasters
+  const RARITY_RANK = { L: 6, UR: 5, SR: 4, R: 3, PC: 2, C: 1 };
+
+  let sessionPulledCards = [];
+  let sessionPacksCount = 0;
 
   let memoryCache = (() => {
     try {
@@ -27,10 +37,31 @@
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(memoryCache)); } catch (e) {}
   }
 
-  // --- 1. INTERFACE WIDGET ---
+  // --- 0. INTERCEPTION DES PAQUETS OUVERTS (/api/packs/open) ---
+  if (!window.__wmFetchHooked) {
+    window.__wmFetchHooked = true;
+    const nativeFetch = window.fetch;
+    window.fetch = async function (...args) {
+      const response = await nativeFetch.apply(this, args);
+      try {
+        const reqUrl = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+        if (reqUrl.includes('/api/packs/open') && response.ok) {
+          const clone = response.clone();
+          clone.json().then((data) => {
+            if (data && Array.isArray(data.cards)) {
+              window.dispatchEvent(new CustomEvent('wm:pack-opened', { detail: data }));
+            }
+          }).catch(() => {});
+        }
+      } catch (e) {}
+      return response;
+    };
+  }
+
+  // --- 1. INTERFACE WIDGET & MODALES ---
   const container = document.createElement('div');
   container.id = 'wm-sorter-container';
-  
+
   const iconCollection = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>`;
   const iconPulls = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>`;
   const iconClose = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
@@ -48,7 +79,6 @@
       </div>
       
       <div id="wm-sorter-body">
-        <!-- MODE COLLECTION -->
         <div id="wm-panel-collection" style="display: none; flex-direction: column; gap: 10px;">
           <div class="wm-tracker-mini">
             <span class="wm-tracker-label">Valeur :</span>
@@ -65,14 +95,14 @@
           <button id="wm-sort-btn" class="wm-button-mini">Trier la page</button>
         </div>
 
-        <!-- MODE PULLS (Auto + Raccourci Clavier) -->
-        <div id="wm-panel-pulls" style="display: none; flex-direction: column; gap: 10px;">
+        <div id="wm-panel-pulls" style="display: none; flex-direction: column; gap: 8px;">
           <div style="display: flex; gap: 6px;">
             <button id="wm-auto-open-btn" class="wm-button-mini" style="background: #f59e0b; color: #451a03;">Tout ouvrir</button>
             <button id="wm-stop-open-btn" class="wm-button-mini" style="background: #ef4444; color: #fff; display: none;">Stop</button>
           </div>
+          <button id="wm-show-loot-btn" class="wm-button-mini" disabled>Voir le butin (0)</button>
           <div class="wm-shortcut-info">
-            Ou martèle <b>➡️</b> au clavier pour défiler manuellement à toute vitesse.
+            Ou utilise <b>➡️</b> au clavier : tes cartes sont enregistrées automatiquement.
           </div>
         </div>
 
@@ -81,6 +111,27 @@
     </div>
   `;
   document.body.appendChild(container);
+
+  // Modale Galerie + Modale Zoom Carte
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="wm-loot-modal">
+      <div class="wm-loot-topbar">
+        <div class="wm-loot-title-wrap">
+          <div class="wm-loot-title">✨ Récapitulatif du Butin <span id="wm-loot-subtitle" style="font-size:14px; font-weight:600; color:#a1a1aa;"></span></div>
+          <div id="wm-loot-stats" class="wm-loot-stats"></div>
+        </div>
+        <div class="wm-loot-actions">
+          <button id="wm-loot-clear-btn" class="wm-modal-btn">Vider la session</button>
+          <button id="wm-loot-close-btn" class="wm-modal-btn wm-modal-btn-primary">Fermer (Échap)</button>
+        </div>
+      </div>
+      <div id="wm-loot-grid"></div>
+    </div>
+
+    <div id="wm-card-detail-overlay">
+      <div id="wm-card-detail-box" class="wm-detail-box"></div>
+    </div>
+  `);
 
   const fab = document.getElementById('wm-sorter-fab');
   const widget = document.getElementById('wm-sorter-widget');
@@ -95,11 +146,19 @@
   const panelPulls = document.getElementById('wm-panel-pulls');
   const autoOpenBtn = document.getElementById('wm-auto-open-btn');
   const stopOpenBtn = document.getElementById('wm-stop-open-btn');
+  const showLootBtn = document.getElementById('wm-show-loot-btn');
+
+  const lootModal = document.getElementById('wm-loot-modal');
+  const lootGrid = document.getElementById('wm-loot-grid');
+  const lootStats = document.getElementById('wm-loot-stats');
+  const lootSubtitle = document.getElementById('wm-loot-subtitle');
+  const detailOverlay = document.getElementById('wm-card-detail-overlay');
+  const detailBox = document.getElementById('wm-card-detail-box');
 
   orderSelect.value = localStorage.getItem(SORT_ORDER_KEY) || 'desc';
   autoSortCheckbox.checked = localStorage.getItem(AUTO_SORT_KEY) === 'true';
 
-  // --- RESTAURATION DE L'ÉTAT ET POSITION ---
+  // --- RESTAURATION POSITION & ÉTAT ---
   const wasOpen = localStorage.getItem(OPEN_STATE_KEY) === 'true';
   fab.style.display = wasOpen ? 'none' : 'flex';
   widget.style.display = wasOpen ? 'flex' : 'none';
@@ -186,7 +245,122 @@
   setInterval(updateWidgetMode, 500);
   updateWidgetMode();
 
-  // --- 2. MOTEUR D'OUVERTURE (AUTO-LOOP + CLAVIER) ---
+  // --- 2. GESTION DU RÉCAPITULATIF DE CARTES TRIÉES PAR RARETÉ ---
+  function escapeHTML(str) {
+    return String(str || '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+  }
+
+  function openCardDetailModal(card) {
+    const mediaHTML = card.image_url
+      ? `<img src="${escapeHTML(card.image_url)}" alt="${escapeHTML(card.wikipedia_title)}" />`
+      : `<div class="wm-pull-card-noimg">WIKIMASTERS</div>`;
+
+    detailBox.innerHTML = `
+      <div class="wm-detail-media">
+        <span class="wm-pull-badge" style="background:#10b981; color:#022c22;">${escapeHTML(card.rarity)}</span>
+        ${mediaHTML}
+      </div>
+      <div class="wm-detail-content">
+        <h3 class="wm-detail-title">${escapeHTML(card.wikipedia_title)}</h3>
+        <div class="wm-detail-cat">${escapeHTML(card.category || 'Article Wikipédia')}</div>
+        <div class="wm-detail-desc">${escapeHTML(card.summary || 'Aucune description disponible pour cette carte.')}</div>
+        <div style="display:flex; justify-content:space-between; font-weight:800; font-size:14px; padding: 4px 0;">
+          <span class="wm-stat-atk">⚔️ ATK : ${card.atk ?? 0}</span>
+          <span class="wm-stat-def">🛡️ DEF : ${card.def ?? 0}</span>
+        </div>
+        <div class="wm-detail-actions">
+          ${card.wikipedia_url ? `<a class="wm-wiki-link" href="${escapeHTML(card.wikipedia_url)}" target="_blank" rel="noopener">📖 Lire sur Wikipédia ↗</a>` : '<span></span>'}
+          <button id="wm-detail-close-btn" class="wm-modal-btn">Fermer</button>
+        </div>
+      </div>
+    `;
+    detailOverlay.style.display = 'flex';
+    document.getElementById('wm-detail-close-btn').addEventListener('click', () => {
+      detailOverlay.style.display = 'none';
+    });
+  }
+
+  detailOverlay.addEventListener('click', (e) => {
+    if (e.target === detailOverlay) detailOverlay.style.display = 'none';
+  });
+
+  function renderLootModal() {
+    if (sessionPulledCards.length === 0) return;
+
+    // Tri par rareté décroissante (L > UR > SR > R > PC > C), puis par ATK décroissante
+    const sorted = [...sessionPulledCards].sort((a, b) => {
+      const diff = (RARITY_RANK[b.rarity] || 0) - (RARITY_RANK[a.rarity] || 0);
+      if (diff !== 0) return diff;
+      return (b.atk || 0) - (a.atk || 0);
+    });
+
+    // Statistiques par rareté
+    const counts = { L: 0, UR: 0, SR: 0, R: 0, PC: 0, C: 0 };
+    sorted.forEach(c => { if (counts[c.rarity] !== undefined) counts[c.rarity]++; });
+
+    lootSubtitle.innerText = `(${sessionPacksCount} paquet${sessionPacksCount > 1 ? 's' : ''} • ${sorted.length} cartes)`;
+    lootStats.innerHTML = Object.entries(counts)
+      .filter(([, count]) => count > 0)
+      .map(([rar, count]) => `<span class="wm-stat-pill">${rar} : ${count}</span>`)
+      .join('');
+
+    lootGrid.innerHTML = '';
+    sorted.forEach((card) => {
+      const cardEl = document.createElement('div');
+      cardEl.className = 'wm-pull-card';
+      cardEl.dataset.rarity = card.rarity || 'C';
+
+      const mediaHTML = card.image_url
+        ? `<img class="wm-pull-card-img" src="${escapeHTML(card.image_url)}" loading="lazy" />`
+        : `<div class="wm-pull-card-noimg">WM</div>`;
+
+      cardEl.innerHTML = `
+        <div class="wm-pull-card-media">
+          <div class="wm-pull-badge">${escapeHTML(card.rarity)}</div>
+          ${mediaHTML}
+        </div>
+        <div class="wm-pull-card-body">
+          <div class="wm-pull-card-title" title="${escapeHTML(card.wikipedia_title)}">${escapeHTML(card.wikipedia_title)}</div>
+          <div class="wm-pull-card-cat" title="${escapeHTML(card.category || '')}">${escapeHTML(card.category || 'Sans catégorie')}</div>
+          <div class="wm-pull-card-desc">${escapeHTML(card.summary || 'Aucune description fournie.')}</div>
+        </div>
+        <div class="wm-pull-card-footer">
+          <span class="wm-stat-atk">⚔️ ${card.atk ?? 0}</span>
+          <span class="wm-stat-def">🛡️ ${card.def ?? 0}</span>
+        </div>
+      `;
+
+      cardEl.addEventListener('click', () => openCardDetailModal(card));
+      lootGrid.appendChild(cardEl);
+    });
+
+    lootModal.style.display = 'flex';
+  }
+
+  window.addEventListener('wm:pack-opened', (e) => {
+    const data = e.detail;
+    if (data && Array.isArray(data.cards)) {
+      sessionPacksCount++;
+      sessionPulledCards.push(...data.cards);
+      showLootBtn.disabled = false;
+      showLootBtn.innerText = `Voir le butin (${sessionPulledCards.length})`;
+      if (lootModal.style.display === 'flex') renderLootModal();
+    }
+  });
+
+  showLootBtn.addEventListener('click', renderLootModal);
+  document.getElementById('wm-loot-close-btn').addEventListener('click', () => {
+    lootModal.style.display = 'none';
+  });
+  document.getElementById('wm-loot-clear-btn').addEventListener('click', () => {
+    sessionPulledCards = [];
+    sessionPacksCount = 0;
+    showLootBtn.disabled = true;
+    showLootBtn.innerText = 'Voir le butin (0)';
+    lootModal.style.display = 'none';
+  });
+
+  // --- 3. MOTEUR D'OUVERTURE (AUTO-LOOP + CLAVIER) ---
   function triggerClick(btn) {
     if (!btn) return;
     btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
@@ -194,7 +368,6 @@
     btn.click();
   }
 
-  // Avance d'une étape sur /pulls. Retourne true si une action a été effectuée, false si plus aucun paquet dispo
   function stepPackOpening() {
     const rightPoly = document.querySelector('button svg polyline[points="9 18 15 12 9 6"]');
     let rightArrowBtn = rightPoly ? rightPoly.closest('button') : null;
@@ -203,22 +376,19 @@
       if (roundBtns.length > 0) rightArrowBtn = roundBtns[roundBtns.length - 1];
     }
 
-    // 1. Carte suivante (cartes 1 à 4)
     if (rightArrowBtn && !rightArrowBtn.disabled) {
       triggerClick(rightArrowBtn);
       return 'next_card';
     }
 
-    const allSiteBtns = Array.from(document.querySelectorAll('button')).filter(b => !container.contains(b));
+    const allSiteBtns = Array.from(document.querySelectorAll('button')).filter(b => !container.contains(b) && !lootModal.contains(b));
 
-    // 2. Bouton "Continuer" (5e carte)
     const continuerBtn = allSiteBtns.find(b => b.textContent.trim().toLowerCase() === 'continuer');
     if (continuerBtn && !continuerBtn.disabled) {
       triggerClick(continuerBtn);
       return 'continue';
     }
 
-    // 3. Bouton "Ouvrir"
     const ouvrirBtn = allSiteBtns.find(b => b.textContent.trim().toLowerCase() === 'ouvrir');
     if (ouvrirBtn && !ouvrirBtn.disabled) {
       triggerClick(ouvrirBtn);
@@ -228,7 +398,6 @@
     return null;
   }
 
-  // Boucle automatique ("Tout ouvrir")
   let autoOpenRunning = false;
 
   async function runAutoOpenLoop() {
@@ -247,39 +416,48 @@
         packsOpened++;
         idleTicks = 0;
         statusEl.innerText = `Ouverture paquet #${packsOpened}...`;
-        await new Promise(r => setTimeout(r, 450)); // Temps de réponse API du site
+        await new Promise(r => setTimeout(r, 450));
       } else if (action === 'next_card') {
         idleTicks = 0;
-        await new Promise(r => setTimeout(r, 140)); // Défilement ultra rapide
+        await new Promise(r => setTimeout(r, 130));
       } else if (action === 'continue') {
         idleTicks = 0;
-        await new Promise(r => setTimeout(r, 250));
+        await new Promise(r => setTimeout(r, 240));
       } else {
-        // Aucun bouton actif (soit chargement réseau en cours, soit 0 paquet restant)
         idleTicks++;
         if (idleTicks >= 6) {
-          statusEl.innerText = packsOpened > 0 ? `Terminé (${packsOpened} paquets) !` : 'Aucun paquet disponible.';
+          statusEl.innerText = packsOpened > 0 ? `Terminé (${packsOpened} paquets) !` : 'Fin des paquets.';
           break;
         }
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 280));
       }
     }
 
     autoOpenRunning = false;
     autoOpenBtn.style.display = 'flex';
     stopOpenBtn.style.display = 'none';
-    setTimeout(() => { if (statusEl.innerText.includes('Terminé') || statusEl.innerText.includes('Aucun')) statusEl.innerText = 'Prêt'; }, 3000);
+
+    // Affiche automatiquement le grand récapitulatif dès que tous les paquets sont ouverts
+    if (sessionPulledCards.length > 0) {
+      renderLootModal();
+    }
   }
 
   autoOpenBtn.addEventListener('click', runAutoOpenLoop);
   stopOpenBtn.addEventListener('click', () => {
     autoOpenRunning = false;
     statusEl.innerText = 'Arrêté.';
+    if (sessionPulledCards.length > 0) renderLootModal();
   });
 
-  // Raccourcis clavier manuels
   window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (detailOverlay.style.display === 'flex') { detailOverlay.style.display = 'none'; return; }
+      if (lootModal.style.display === 'flex') { lootModal.style.display = 'none'; return; }
+    }
+
     if (!window.location.pathname.includes('/pulls')) return;
+    if (lootModal.style.display === 'flex' || detailOverlay.style.display === 'flex') return;
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
 
     if (e.key === 'ArrowRight') {
@@ -288,10 +466,15 @@
       if (action === 'continue') {
         setTimeout(() => {
           const nextOuvrirBtn = Array.from(document.querySelectorAll('button'))
-            .filter(b => !container.contains(b))
+            .filter(b => !container.contains(b) && !lootModal.contains(b))
             .find(b => b.textContent.trim().toLowerCase() === 'ouvrir');
-          if (nextOuvrirBtn && !nextOuvrirBtn.disabled) triggerClick(nextOuvrirBtn);
-        }, 180);
+          if (nextOuvrirBtn && !nextOuvrirBtn.disabled) {
+            triggerClick(nextOuvrirBtn);
+          } else if (sessionPulledCards.length > 0) {
+            // Plus de bouton "Ouvrir" = dernier paquet terminé, on ouvre le récapitulatif !
+            renderLootModal();
+          }
+        }, 220);
       }
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
@@ -305,7 +488,7 @@
     }
   }, true);
 
-  // --- 3. LOGIQUE TRI DE COLLECTION ---
+  // --- 4. LOGIQUE TRI DE COLLECTION ---
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   function findCardInfoInObject(obj, visited = new Set(), depth = 0) { if (!obj || typeof obj !== 'object' || depth > 8 || visited.has(obj) || Array.isArray(obj)) return null; visited.add(obj); if (typeof obj.card_id === 'string' && UUID_REGEX.test(obj.card_id)) return { cardId: obj.card_id, rarity: (obj.card && obj.card.rarity) || obj.rarity || null }; if (obj.card && typeof obj.card === 'object' && typeof obj.card.id === 'string' && UUID_REGEX.test(obj.card.id)) return { cardId: obj.card.id, rarity: obj.card.rarity || obj.rarity || null }; if (typeof obj.id === 'string' && UUID_REGEX.test(obj.id) && obj.card_id === undefined && (obj.atk !== undefined || obj.def !== undefined || obj.rarity !== undefined)) return { cardId: obj.id, rarity: obj.rarity || null }; for (const key of Object.keys(obj)) { if (key.startsWith('_') || key === 'children' || key === 'ref') continue; const found = findCardInfoInObject(obj[key], visited, depth + 1); if (found) return found; } return null; }
   function detectRarityFromDOM(cardEl) { const validRarities = ['UR', 'SR', 'PC', 'L', 'R', 'C']; const badges = cardEl.querySelectorAll('span, div'); for (const b of badges) { if (b.classList && b.classList.contains('wm-price-tag')) continue; const txt = (b.textContent || '').trim().toUpperCase(); if (validRarities.includes(txt)) return txt; } return null; }
@@ -326,6 +509,6 @@
   autoSortCheckbox.addEventListener('change', () => { localStorage.setItem(AUTO_SORT_KEY, String(autoSortCheckbox.checked)); if (autoSortCheckbox.checked && getCurrentPageSignature() !== lastSortedPageSignature) startSorting(); });
   let pageChangeTimer = null;
   function checkAndTriggerAutoSort() { clearTimeout(pageChangeTimer); pageChangeTimer = setTimeout(() => { const currentSig = getCurrentPageSignature(); if (currentSig && currentSig !== lastSortedPageSignature) { resetGridOrderAndBadges(); if (autoSortCheckbox.checked) startSorting(); } }, 250); }
-  new MutationObserver((mutations) => { for (const m of mutations) { if (container.contains(m.target) || (m.target.classList && m.target.classList.contains('wm-price-tag'))) continue; checkAndTriggerAutoSort(); break; } }).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver((mutations) => { for (const m of mutations) { if (container.contains(m.target) || lootModal.contains(m.target) || detailOverlay.contains(m.target) || (m.target.classList && m.target.classList.contains('wm-price-tag'))) continue; checkAndTriggerAutoSort(); break; } }).observe(document.body, { childList: true, subtree: true });
   if (autoSortCheckbox.checked) checkAndTriggerAutoSort();
 })();
