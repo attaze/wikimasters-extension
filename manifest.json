@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "WikiMasters Market Sorter",
+  "version": "5.0",
+  "description": "Trie les cartes de la collection par prix du marché et ouverture rapide.",
+  "host_permissions": [
+    "*://*.wiki-masters.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.wiki-masters.com/*"],
+      "css": ["style.css"],
+      "js": ["content.js"],
+      "world": "MAIN"
+    }
+  ]
+}

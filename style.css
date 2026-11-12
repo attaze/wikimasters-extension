@@ -1,0 +1,48 @@
+#wm-sorter-container {
+  position: fixed; top: 90px; left: calc(100vw - 70px);
+  z-index: 2147483647; font-family: ui-sans-serif, system-ui, sans-serif; user-select: none;
+}
+
+#wm-sorter-fab {
+  width: 40px; height: 40px; background-color: rgba(9, 9, 11, 0.85); backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; display: flex; justify-content: center;
+  align-items: center; color: #10b981; cursor: grab; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); transition: all 0.2s ease;
+}
+#wm-sorter-fab:hover { background-color: rgba(24, 24, 27, 0.95); border-color: #10b981; }
+
+#wm-sorter-widget {
+  width: 220px; background-color: rgba(9, 9, 11, 0.75); backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-shadow: 0 16px 32px rgba(0, 0, 0, 0.6);
+  color: #fafafa; display: none; flex-direction: column; overflow: hidden; transition: height 0.3s;
+}
+
+#wm-sorter-header {
+  background-color: rgba(0, 0, 0, 0.2); padding: 8px 12px; cursor: grab; font-weight: 600; font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;
+}
+.wm-header-title { display: flex; align-items: center; gap: 6px; color: #e4e4e7; }
+.wm-header-actions { display: flex; align-items: center; gap: 4px; }
+.wm-icon-btn { cursor: pointer; color: #71717a; background: transparent; border: none; padding: 4px; border-radius: 4px; transition: all 0.2s; }
+.wm-icon-btn:hover { color: #fafafa; background-color: rgba(255,255,255,0.1); }
+
+#wm-sorter-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+.wm-tracker-mini { background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 6px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; }
+.wm-tracker-label { font-size: 11px; color: #10b981; font-weight: 600; }
+.wm-tracker-value { font-size: 13px; font-weight: 800; color: #34d399; }
+.wm-shortcut-info { background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 8px; font-size: 11px; color: #fbbf24; text-align: center; line-height: 1.4;}
+
+.wm-select-mini { background-color: rgba(24, 24, 27, 0.6); color: #e4e4e7; border: 1px solid rgba(255,255,255,0.1); padding: 6px 8px; border-radius: 6px; font-size: 11px; outline: none; cursor: pointer; }
+.wm-toggle-mini { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #a1a1aa; cursor: pointer; padding: 2px 0; }
+.wm-checkbox-mini { accent-color: #10b981; width: 13px; height: 13px; cursor: pointer; margin: 0; }
+.wm-button-mini { background-color: #10b981; color: #022c22; border: none; padding: 8px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s; flex: 1; }
+.wm-button-mini:hover { background-color: #34d399; }
+.wm-button-mini:disabled { background-color: #27272a; color: #71717a; cursor: not-allowed; }
+.wm-status-mini { font-size: 10px; color: #a1a1aa; text-align: center; min-height: 14px; }
+
+.wm-price-tag {
+  position: absolute !important; top: 6px !important; right: 6px !important; z-index: 99999 !important;
+  pointer-events: none !important; padding: 3px 8px !important; border-radius: 999px !important;
+  font-weight: 800 !important; font-size: 11px !important; line-height: 1.2 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6) !important; transform: translateZ(0); border: 1px solid rgba(255,255,255,0.15) !important; backdrop-filter: blur(4px) !important;
+}
