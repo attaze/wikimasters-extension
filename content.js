@@ -14,7 +14,6 @@
   const CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
   const CONCURRENCY_LIMIT = 3;
 
-  // Ordre de rareté officiel WikiMasters
   const RARITY_RANK = { L: 6, UR: 5, SR: 4, R: 3, PC: 2, C: 1 };
 
   let sessionPulledCards = [];
@@ -37,7 +36,7 @@
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(memoryCache)); } catch (e) {}
   }
 
-  // --- 0. INTERCEPTION DES PAQUETS OUVERTS (/api/packs/open) ---
+  // --- 0. INTERCEPTION DES PAQUETS OUVERTS ---
   if (!window.__wmFetchHooked) {
     window.__wmFetchHooked = true;
     const nativeFetch = window.fetch;
@@ -112,7 +111,6 @@
   `;
   document.body.appendChild(container);
 
-  // Modale Galerie + Modale Zoom Carte
   document.body.insertAdjacentHTML('beforeend', `
     <div id="wm-loot-modal">
       <div class="wm-loot-topbar">
@@ -127,7 +125,6 @@
       </div>
       <div id="wm-loot-grid"></div>
     </div>
-
     <div id="wm-card-detail-overlay">
       <div id="wm-card-detail-box" class="wm-detail-box"></div>
     </div>
@@ -158,7 +155,6 @@
   orderSelect.value = localStorage.getItem(SORT_ORDER_KEY) || 'desc';
   autoSortCheckbox.checked = localStorage.getItem(AUTO_SORT_KEY) === 'true';
 
-  // --- RESTAURATION POSITION & ÉTAT ---
   const wasOpen = localStorage.getItem(OPEN_STATE_KEY) === 'true';
   fab.style.display = wasOpen ? 'none' : 'flex';
   widget.style.display = wasOpen ? 'flex' : 'none';
@@ -245,15 +241,64 @@
   setInterval(updateWidgetMode, 500);
   updateWidgetMode();
 
-  // --- 2. GESTION DU RÉCAPITULATIF DE CARTES TRIÉES PAR RARETÉ ---
+  // --- 2. GESTION DU RÉCAPITULATIF ET PRIX EN ARRIÈRE-PLAN ---
   function escapeHTML(str) {
     return String(str || '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+  }
+
+  // Permet de récupérer le prix asynchrone des cartes obtenues
+  async function loadLootPrices(cards) {
+    const uniqueCards = [];
+    const seen = new Set();
+    for (const c of cards) {
+      if (!seen.has(c.id)) { seen.add(c.id); uniqueCards.push(c); }
+    }
+
+    for (const card of uniqueCards) {
+      if (lootModal.style.display !== 'flex') break; // On arrête tout si l'utilisateur a fermé la fenêtre
+      
+      let price = 0;
+      const cached = memoryCache[card.id];
+      
+      if (cached && Date.now() - cached.ts < CACHE_TTL) {
+        price = getPriceFromSummary(cached.summary, card.rarity);
+      } else {
+        try {
+          const res = await fetch(`/api/marketplace/cards/${card.id}/sales?scope=summary`, { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            const summary = (data && data.summary) || {};
+            memoryCache[card.id] = { summary, ts: Date.now() };
+            saveCache();
+            price = getPriceFromSummary(summary, card.rarity);
+          }
+        } catch(e) {}
+        await new Promise(r => setTimeout(r, 70)); // Petit délai pour ne pas flood l'API
+      }
+      
+      // Met à jour l'affichage sur la carte
+      const els = document.querySelectorAll(`.wm-price-target-${card.id}`);
+      els.forEach(el => {
+        el.innerText = price > 0 ? `${price} Ⓦ` : `0 Ⓦ`;
+        el.dataset.price = price > 0 ? 'found' : 'zero';
+      });
+    }
   }
 
   function openCardDetailModal(card) {
     const mediaHTML = card.image_url
       ? `<img src="${escapeHTML(card.image_url)}" alt="${escapeHTML(card.wikipedia_title)}" />`
       : `<div class="wm-pull-card-noimg">WIKIMASTERS</div>`;
+
+    // Vérifie si le prix est déjà dans le cache au moment du clic
+    let priceText = '⏳';
+    let priceData = 'pending';
+    const cached = memoryCache[card.id];
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      const p = getPriceFromSummary(cached.summary, card.rarity);
+      priceText = p > 0 ? `${p} Ⓦ` : `0 Ⓦ`;
+      priceData = p > 0 ? 'found' : 'zero';
+    }
 
     detailBox.innerHTML = `
       <div class="wm-detail-media">
@@ -264,9 +309,10 @@
         <h3 class="wm-detail-title">${escapeHTML(card.wikipedia_title)}</h3>
         <div class="wm-detail-cat">${escapeHTML(card.category || 'Article Wikipédia')}</div>
         <div class="wm-detail-desc">${escapeHTML(card.summary || 'Aucune description disponible pour cette carte.')}</div>
-        <div style="display:flex; justify-content:space-between; font-weight:800; font-size:14px; padding: 4px 0;">
+        <div style="display:flex; justify-content:space-between; font-weight:800; font-size:14px; padding: 4px 0; align-items:center;">
           <span class="wm-stat-atk">⚔️ ATK : ${card.atk ?? 0}</span>
           <span class="wm-stat-def">🛡️ DEF : ${card.def ?? 0}</span>
+          <span class="wm-stat-price wm-price-target-${card.id}" data-price="${priceData}">${priceText}</span>
         </div>
         <div class="wm-detail-actions">
           ${card.wikipedia_url ? `<a class="wm-wiki-link" href="${escapeHTML(card.wikipedia_url)}" target="_blank" rel="noopener">📖 Lire sur Wikipédia ↗</a>` : '<span></span>'}
@@ -287,14 +333,12 @@
   function renderLootModal() {
     if (sessionPulledCards.length === 0) return;
 
-    // Tri par rareté décroissante (L > UR > SR > R > PC > C), puis par ATK décroissante
     const sorted = [...sessionPulledCards].sort((a, b) => {
       const diff = (RARITY_RANK[b.rarity] || 0) - (RARITY_RANK[a.rarity] || 0);
       if (diff !== 0) return diff;
       return (b.atk || 0) - (a.atk || 0);
     });
 
-    // Statistiques par rareté
     const counts = { L: 0, UR: 0, SR: 0, R: 0, PC: 0, C: 0 };
     sorted.forEach(c => { if (counts[c.rarity] !== undefined) counts[c.rarity]++; });
 
@@ -327,6 +371,7 @@
         <div class="wm-pull-card-footer">
           <span class="wm-stat-atk">⚔️ ${card.atk ?? 0}</span>
           <span class="wm-stat-def">🛡️ ${card.def ?? 0}</span>
+          <span class="wm-stat-price wm-price-target-${card.id}">⏳</span>
         </div>
       `;
 
@@ -335,6 +380,7 @@
     });
 
     lootModal.style.display = 'flex';
+    loadLootPrices(sorted);
   }
 
   window.addEventListener('wm:pack-opened', (e) => {
@@ -360,7 +406,7 @@
     lootModal.style.display = 'none';
   });
 
-  // --- 3. MOTEUR D'OUVERTURE (AUTO-LOOP + CLAVIER) ---
+  // --- 3. MOTEUR D'OUVERTURE ---
   function triggerClick(btn) {
     if (!btn) return;
     btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
@@ -399,7 +445,6 @@
   }
 
   let autoOpenRunning = false;
-
   async function runAutoOpenLoop() {
     if (autoOpenRunning) return;
     autoOpenRunning = true;
@@ -437,10 +482,7 @@
     autoOpenBtn.style.display = 'flex';
     stopOpenBtn.style.display = 'none';
 
-    // Affiche automatiquement le grand récapitulatif dès que tous les paquets sont ouverts
-    if (sessionPulledCards.length > 0) {
-      renderLootModal();
-    }
+    if (sessionPulledCards.length > 0) renderLootModal();
   }
 
   autoOpenBtn.addEventListener('click', runAutoOpenLoop);
@@ -471,7 +513,6 @@
           if (nextOuvrirBtn && !nextOuvrirBtn.disabled) {
             triggerClick(nextOuvrirBtn);
           } else if (sessionPulledCards.length > 0) {
-            // Plus de bouton "Ouvrir" = dernier paquet terminé, on ouvre le récapitulatif !
             renderLootModal();
           }
         }, 220);

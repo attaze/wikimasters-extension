@@ -47,7 +47,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6) !important; transform: translateZ(0); border: 1px solid rgba(255,255,255,0.15) !important; backdrop-filter: blur(4px) !important;
 }
 
-/* === MODALE DE RÉCAPITULATIF DES TIRAGES (GRAND FORMAT LISIBLE) === */
+/* === MODALE DE RÉCAPITULATIF DES TIRAGES === */
 #wm-loot-modal {
   position: fixed; inset: 0; background: rgba(5, 5, 7, 0.92); backdrop-filter: blur(14px);
   z-index: 2147483646; display: none; flex-direction: column; align-items: center; padding: 28px 20px;
@@ -120,33 +120,35 @@
 .wm-pull-card-desc::-webkit-scrollbar { width: 4px; }
 .wm-pull-card-desc::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
 
+/* === NOUVEAU : Badges de prix dans le butin === */
 .wm-pull-card-footer {
   padding: 8px 14px; background: rgba(0,0,0,0.3); border-top: 1px solid rgba(255,255,255,0.05);
-  display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; flex-shrink: 0;
+  display: flex; align-items: center; font-size: 12px; font-weight: 700; flex-shrink: 0; gap: 8px;
 }
 .wm-stat-atk { color: #f87171; }
 .wm-stat-def { color: #60a5fa; }
+.wm-stat-price {
+  margin-left: auto; background: rgba(245, 158, 11, 0.15); color: #f59e0b;
+  padding: 3px 8px; border-radius: 6px; font-size: 11px; transition: all 0.3s;
+}
+.wm-stat-price[data-price="found"] { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.wm-stat-price[data-price="zero"] { background: rgba(255, 255, 255, 0.05); color: #a1a1aa; }
 
-/* Thèmes de Rareté (L > UR > SR > R > PC > C) */
+/* Thèmes de Rareté */
 .wm-pull-card[data-rarity="L"] { border-color: #eab308; box-shadow: 0 0 20px rgba(234, 179, 8, 0.28); }
 .wm-pull-card[data-rarity="L"] .wm-pull-badge { background: linear-gradient(135deg, #fef08a, #eab308); color: #422006; }
-
 .wm-pull-card[data-rarity="UR"] { border-color: #f59e0b; box-shadow: 0 0 16px rgba(245, 158, 11, 0.22); }
 .wm-pull-card[data-rarity="UR"] .wm-pull-badge { background: #f59e0b; color: #451a03; }
-
 .wm-pull-card[data-rarity="SR"] { border-color: #d946ef; box-shadow: 0 0 14px rgba(217, 70, 239, 0.2); }
 .wm-pull-card[data-rarity="SR"] .wm-pull-badge { background: #d946ef; color: #fff; }
-
 .wm-pull-card[data-rarity="R"] { border-color: #3b82f6; }
 .wm-pull-card[data-rarity="R"] .wm-pull-badge { background: #3b82f6; color: #fff; }
-
 .wm-pull-card[data-rarity="PC"] { border-color: #22c55e; }
 .wm-pull-card[data-rarity="PC"] .wm-pull-badge { background: #22c55e; color: #052e16; }
-
 .wm-pull-card[data-rarity="C"] { border-color: #3f3f46; }
 .wm-pull-card[data-rarity="C"] .wm-pull-badge { background: #71717a; color: #fff; }
 
-/* === ZOOM CARTE AU CLIC (COMME DANS LA COLLECTION) === */
+/* === ZOOM CARTE === */
 #wm-card-detail-overlay {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px);
   z-index: 2147483647; display: none; align-items: center; justify-content: center; padding: 20px;
