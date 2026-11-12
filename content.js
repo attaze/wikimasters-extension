@@ -48,6 +48,7 @@
       </div>
       
       <div id="wm-sorter-body">
+        <!-- MODE COLLECTION -->
         <div id="wm-panel-collection" style="display: none; flex-direction: column; gap: 10px;">
           <div class="wm-tracker-mini">
             <span class="wm-tracker-label">Valeur :</span>
@@ -64,9 +65,14 @@
           <button id="wm-sort-btn" class="wm-button-mini">Trier la page</button>
         </div>
 
+        <!-- MODE PULLS (Auto + Raccourci Clavier) -->
         <div id="wm-panel-pulls" style="display: none; flex-direction: column; gap: 10px;">
+          <div style="display: flex; gap: 6px;">
+            <button id="wm-auto-open-btn" class="wm-button-mini" style="background: #f59e0b; color: #451a03;">Tout ouvrir</button>
+            <button id="wm-stop-open-btn" class="wm-button-mini" style="background: #ef4444; color: #fff; display: none;">Stop</button>
+          </div>
           <div class="wm-shortcut-info">
-            <b>Raccourci activé ⚡</b><br>Martèle la flèche <b>➡️</b> pour ouvrir un pack, défiler les cartes et enchaîner sur le pack suivant.
+            Ou martèle <b>➡️</b> au clavier pour défiler manuellement à toute vitesse.
           </div>
         </div>
 
@@ -87,19 +93,16 @@
   const orderSelect = document.getElementById('wm-sort-order');
   const autoSortCheckbox = document.getElementById('wm-auto-sort');
   const panelPulls = document.getElementById('wm-panel-pulls');
+  const autoOpenBtn = document.getElementById('wm-auto-open-btn');
+  const stopOpenBtn = document.getElementById('wm-stop-open-btn');
 
   orderSelect.value = localStorage.getItem(SORT_ORDER_KEY) || 'desc';
   autoSortCheckbox.checked = localStorage.getItem(AUTO_SORT_KEY) === 'true';
 
-  // --- RESTAURATION DE L'ÉTAT (OUVERT/FERMÉ) ET DE LA POSITION ---
+  // --- RESTAURATION DE L'ÉTAT ET POSITION ---
   const wasOpen = localStorage.getItem(OPEN_STATE_KEY) === 'true';
-  if (wasOpen) {
-    fab.style.display = 'none';
-    widget.style.display = 'flex';
-  } else {
-    fab.style.display = 'flex';
-    widget.style.display = 'none';
-  }
+  fab.style.display = wasOpen ? 'none' : 'flex';
+  widget.style.display = wasOpen ? 'flex' : 'none';
 
   function savePosition() {
     try {
@@ -132,104 +135,58 @@
   }
 
   let isDragging = false, hasMoved = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
-
   function onMouseDown(e) {
     if (e.target.closest('.wm-header-actions') || e.button !== 0) return;
-    isDragging = true;
-    hasMoved = false;
-    startX = e.clientX;
-    startY = e.clientY;
+    isDragging = true; hasMoved = false; startX = e.clientX; startY = e.clientY;
     const rect = container.getBoundingClientRect();
-    startLeft = rect.left;
-    startTop = rect.top;
-    fab.style.cursor = 'grabbing';
-    headerEl.style.cursor = 'grabbing';
+    startLeft = rect.left; startTop = rect.top;
+    fab.style.cursor = 'grabbing'; headerEl.style.cursor = 'grabbing';
     e.preventDefault();
   }
-
   fab.addEventListener('mousedown', onMouseDown);
   headerEl.addEventListener('mousedown', onMouseDown);
-
   window.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
     if (Math.abs(e.clientX - startX) > 4 || Math.abs(e.clientY - startY) > 4) hasMoved = true;
     container.style.left = Math.min(Math.max(10, startLeft + (e.clientX - startX)), window.innerWidth - container.offsetWidth - 10) + 'px';
     container.style.top = Math.min(Math.max(10, startTop + (e.clientY - startY)), window.innerHeight - container.offsetHeight - 10) + 'px';
   });
-
   window.addEventListener('mouseup', () => {
     if (!isDragging) return;
-    isDragging = false;
-    fab.style.cursor = 'grab';
-    headerEl.style.cursor = 'grab';
+    isDragging = false; fab.style.cursor = 'grab'; headerEl.style.cursor = 'grab';
     if (hasMoved) savePosition();
   });
-
   fab.addEventListener('click', () => {
     if (hasMoved) return;
-    fab.style.display = 'none';
-    widget.style.display = 'flex';
-    localStorage.setItem(OPEN_STATE_KEY, 'true');
-    clampToScreen();
-    savePosition();
+    fab.style.display = 'none'; widget.style.display = 'flex';
+    localStorage.setItem(OPEN_STATE_KEY, 'true'); clampToScreen(); savePosition();
   });
-
   document.getElementById('wm-close-btn').addEventListener('click', () => {
-    widget.style.display = 'none';
-    fab.style.display = 'flex';
-    localStorage.setItem(OPEN_STATE_KEY, 'false');
-    clampToScreen();
-    savePosition();
+    widget.style.display = 'none'; fab.style.display = 'flex';
+    localStorage.setItem(OPEN_STATE_KEY, 'false'); clampToScreen(); savePosition();
   });
-
   document.getElementById('wm-clear-cache-btn').addEventListener('click', () => {
-    memoryCache = {};
-    localStorage.removeItem(CACHE_KEY);
-    trackerTotalEl.innerText = '0 Ⓦ';
+    memoryCache = {}; localStorage.removeItem(CACHE_KEY); trackerTotalEl.innerText = '0 Ⓦ';
     statusEl.innerText = 'Cache vidé !';
     setTimeout(() => { if (statusEl.innerText === 'Cache vidé !') statusEl.innerText = 'Prêt'; }, 2000);
   });
-
-  window.addEventListener('resize', () => {
-    clampToScreen();
-    savePosition();
-  });
+  window.addEventListener('resize', () => { clampToScreen(); savePosition(); });
 
   let currentMode = '';
   function updateWidgetMode() {
     const path = window.location.pathname;
     if (path.includes('/collection')) {
-      if (currentMode !== 'collection') {
-        panelCollection.style.display = 'flex';
-        panelPulls.style.display = 'none';
-        headerTitle.innerHTML = `${iconCollection} Tri de Collection`;
-        fab.innerHTML = iconCollection;
-        currentMode = 'collection';
-        statusEl.innerText = 'Prêt';
-      }
+      if (currentMode !== 'collection') { panelCollection.style.display = 'flex'; panelPulls.style.display = 'none'; headerTitle.innerHTML = `${iconCollection} Tri de Collection`; fab.innerHTML = iconCollection; currentMode = 'collection'; statusEl.innerText = 'Prêt'; }
     } else if (path.includes('/pulls')) {
-      if (currentMode !== 'pulls') {
-        panelCollection.style.display = 'none';
-        panelPulls.style.display = 'flex';
-        headerTitle.innerHTML = `${iconPulls} Ouverture Rapide`;
-        fab.innerHTML = iconPulls;
-        currentMode = 'pulls';
-        statusEl.innerText = 'Prêt';
-      }
+      if (currentMode !== 'pulls') { panelCollection.style.display = 'none'; panelPulls.style.display = 'flex'; headerTitle.innerHTML = `${iconPulls} Ouverture Rapide`; fab.innerHTML = iconPulls; currentMode = 'pulls'; statusEl.innerText = 'Prêt'; }
     } else {
-      if (currentMode !== 'hidden') {
-        panelCollection.style.display = 'none';
-        panelPulls.style.display = 'none';
-        headerTitle.innerHTML = `WikiMasters Tools`;
-        fab.innerHTML = `⚙️`;
-        currentMode = 'hidden';
-      }
+      if (currentMode !== 'hidden') { panelCollection.style.display = 'none'; panelPulls.style.display = 'none'; headerTitle.innerHTML = `WikiMasters Tools`; fab.innerHTML = `⚙️`; currentMode = 'hidden'; }
     }
   }
   setInterval(updateWidgetMode, 500);
   updateWidgetMode();
 
-  // --- 2. NAVIGATION RAPIDE AU CLAVIER SUR /PULLS ---
+  // --- 2. MOTEUR D'OUVERTURE (AUTO-LOOP + CLAVIER) ---
   function triggerClick(btn) {
     if (!btn) return;
     btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
@@ -237,60 +194,114 @@
     btn.click();
   }
 
+  // Avance d'une étape sur /pulls. Retourne true si une action a été effectuée, false si plus aucun paquet dispo
+  function stepPackOpening() {
+    const rightPoly = document.querySelector('button svg polyline[points="9 18 15 12 9 6"]');
+    let rightArrowBtn = rightPoly ? rightPoly.closest('button') : null;
+    if (!rightArrowBtn) {
+      const roundBtns = Array.from(document.querySelectorAll('button.w-12.h-12.rounded-full'));
+      if (roundBtns.length > 0) rightArrowBtn = roundBtns[roundBtns.length - 1];
+    }
+
+    // 1. Carte suivante (cartes 1 à 4)
+    if (rightArrowBtn && !rightArrowBtn.disabled) {
+      triggerClick(rightArrowBtn);
+      return 'next_card';
+    }
+
+    const allSiteBtns = Array.from(document.querySelectorAll('button')).filter(b => !container.contains(b));
+
+    // 2. Bouton "Continuer" (5e carte)
+    const continuerBtn = allSiteBtns.find(b => b.textContent.trim().toLowerCase() === 'continuer');
+    if (continuerBtn && !continuerBtn.disabled) {
+      triggerClick(continuerBtn);
+      return 'continue';
+    }
+
+    // 3. Bouton "Ouvrir"
+    const ouvrirBtn = allSiteBtns.find(b => b.textContent.trim().toLowerCase() === 'ouvrir');
+    if (ouvrirBtn && !ouvrirBtn.disabled) {
+      triggerClick(ouvrirBtn);
+      return 'open';
+    }
+
+    return null;
+  }
+
+  // Boucle automatique ("Tout ouvrir")
+  let autoOpenRunning = false;
+
+  async function runAutoOpenLoop() {
+    if (autoOpenRunning) return;
+    autoOpenRunning = true;
+    autoOpenBtn.style.display = 'none';
+    stopOpenBtn.style.display = 'flex';
+
+    let packsOpened = 0;
+    let idleTicks = 0;
+
+    while (autoOpenRunning && window.location.pathname.includes('/pulls')) {
+      const action = stepPackOpening();
+
+      if (action === 'open') {
+        packsOpened++;
+        idleTicks = 0;
+        statusEl.innerText = `Ouverture paquet #${packsOpened}...`;
+        await new Promise(r => setTimeout(r, 450)); // Temps de réponse API du site
+      } else if (action === 'next_card') {
+        idleTicks = 0;
+        await new Promise(r => setTimeout(r, 140)); // Défilement ultra rapide
+      } else if (action === 'continue') {
+        idleTicks = 0;
+        await new Promise(r => setTimeout(r, 250));
+      } else {
+        // Aucun bouton actif (soit chargement réseau en cours, soit 0 paquet restant)
+        idleTicks++;
+        if (idleTicks >= 6) {
+          statusEl.innerText = packsOpened > 0 ? `Terminé (${packsOpened} paquets) !` : 'Aucun paquet disponible.';
+          break;
+        }
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+
+    autoOpenRunning = false;
+    autoOpenBtn.style.display = 'flex';
+    stopOpenBtn.style.display = 'none';
+    setTimeout(() => { if (statusEl.innerText.includes('Terminé') || statusEl.innerText.includes('Aucun')) statusEl.innerText = 'Prêt'; }, 3000);
+  }
+
+  autoOpenBtn.addEventListener('click', runAutoOpenLoop);
+  stopOpenBtn.addEventListener('click', () => {
+    autoOpenRunning = false;
+    statusEl.innerText = 'Arrêté.';
+  });
+
+  // Raccourcis clavier manuels
   window.addEventListener('keydown', (e) => {
     if (!window.location.pathname.includes('/pulls')) return;
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
 
     if (e.key === 'ArrowRight') {
       e.preventDefault();
-
-      const rightPoly = document.querySelector('button svg polyline[points="9 18 15 12 9 6"]');
-      let rightArrowBtn = rightPoly ? rightPoly.closest('button') : null;
-
-      if (!rightArrowBtn) {
-        const roundBtns = Array.from(document.querySelectorAll('button.w-12.h-12.rounded-full'));
-        if (roundBtns.length > 0) rightArrowBtn = roundBtns[roundBtns.length - 1];
-      }
-
-      if (rightArrowBtn && !rightArrowBtn.disabled) {
-        triggerClick(rightArrowBtn);
-        return;
-      }
-
-      const allSiteBtns = Array.from(document.querySelectorAll('button')).filter(b => !container.contains(b));
-      const continuerBtn = allSiteBtns.find(b => b.textContent.trim().toLowerCase() === 'continuer');
-      if (continuerBtn && !continuerBtn.disabled) {
-        triggerClick(continuerBtn);
+      const action = stepPackOpening();
+      if (action === 'continue') {
         setTimeout(() => {
           const nextOuvrirBtn = Array.from(document.querySelectorAll('button'))
             .filter(b => !container.contains(b))
             .find(b => b.textContent.trim().toLowerCase() === 'ouvrir');
-          if (nextOuvrirBtn && !nextOuvrirBtn.disabled) {
-            triggerClick(nextOuvrirBtn);
-          }
+          if (nextOuvrirBtn && !nextOuvrirBtn.disabled) triggerClick(nextOuvrirBtn);
         }, 180);
-        return;
       }
-
-      const ouvrirBtn = allSiteBtns.find(b => b.textContent.trim().toLowerCase() === 'ouvrir');
-      if (ouvrirBtn && !ouvrirBtn.disabled) {
-        triggerClick(ouvrirBtn);
-      }
-    } 
-    
-    else if (e.key === 'ArrowLeft') {
+    } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
       const leftPoly = document.querySelector('button svg polyline[points="15 18 9 12 15 6"]');
       let leftArrowBtn = leftPoly ? leftPoly.closest('button') : null;
-
       if (!leftArrowBtn) {
         const roundBtns = Array.from(document.querySelectorAll('button.w-12.h-12.rounded-full'));
         if (roundBtns.length >= 2) leftArrowBtn = roundBtns[0];
       }
-
-      if (leftArrowBtn && !leftArrowBtn.disabled) {
-        triggerClick(leftArrowBtn);
-      }
+      if (leftArrowBtn && !leftArrowBtn.disabled) triggerClick(leftArrowBtn);
     }
   }, true);
 

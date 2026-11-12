@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "WikiMasters Market Sorter",
-  "version": "5.0",
+  "name": "WikiMasters Tools",
+  "version": "6.1",
   "description": "Trie les cartes de la collection par prix du marché et ouverture rapide.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "wikimasters-tools@attaze.github.io",
+      "strict_min_version": "109.0"
+    }
+  },
   "host_permissions": [
     "*://*.wiki-masters.com/*"
   ],
@@ -10,8 +16,13 @@
     {
       "matches": ["*://*.wiki-masters.com/*"],
       "css": ["style.css"],
-      "js": ["content.js"],
-      "world": "MAIN"
+      "js": ["injector.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content.js"],
+      "matches": ["*://*.wiki-masters.com/*"]
     }
   ]
 }
