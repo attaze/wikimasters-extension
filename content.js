@@ -5,6 +5,8 @@
   const CACHE_KEY = 'wm_market_prices_v6';
   const AUTO_SORT_KEY = 'wm_auto_sort_enabled';
   const SORT_ORDER_KEY = 'wm_sort_order_pref';
+  const POS_KEY = 'wm_widget_pos';
+  const OPEN_STATE_KEY = 'wm_widget_open';
   const CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
   const CONCURRENCY_LIMIT = 3;
 
@@ -76,6 +78,7 @@
 
   const fab = document.getElementById('wm-sorter-fab');
   const widget = document.getElementById('wm-sorter-widget');
+  const headerEl = document.getElementById('wm-sorter-header');
   const headerTitle = document.getElementById('wm-header-title');
   const statusEl = document.getElementById('wm-sorter-status');
   const panelCollection = document.getElementById('wm-panel-collection');
@@ -88,30 +91,143 @@
   orderSelect.value = localStorage.getItem(SORT_ORDER_KEY) || 'desc';
   autoSortCheckbox.checked = localStorage.getItem(AUTO_SORT_KEY) === 'true';
 
-  container.style.left = (window.innerWidth - 70) + 'px'; container.style.top = '90px';
-  function clampToScreen() { container.style.left = Math.min(Math.max(10, container.getBoundingClientRect().left), window.innerWidth - container.offsetWidth - 10) + 'px'; container.style.top = Math.min(Math.max(10, container.getBoundingClientRect().top), window.innerHeight - container.offsetHeight - 10) + 'px'; }
+  // --- RESTAURATION DE L'ÉTAT (OUVERT/FERMÉ) ET DE LA POSITION ---
+  const wasOpen = localStorage.getItem(OPEN_STATE_KEY) === 'true';
+  if (wasOpen) {
+    fab.style.display = 'none';
+    widget.style.display = 'flex';
+  } else {
+    fab.style.display = 'flex';
+    widget.style.display = 'none';
+  }
+
+  function savePosition() {
+    try {
+      const rect = container.getBoundingClientRect();
+      localStorage.setItem(POS_KEY, JSON.stringify({ left: rect.left, top: rect.top }));
+    } catch (e) {}
+  }
+
+  function clampToScreen() {
+    const rect = container.getBoundingClientRect();
+    const maxLeft = Math.max(10, window.innerWidth - container.offsetWidth - 10);
+    const maxTop = Math.max(10, window.innerHeight - container.offsetHeight - 10);
+    container.style.left = Math.min(Math.max(10, rect.left), maxLeft) + 'px';
+    container.style.top = Math.min(Math.max(10, rect.top), maxTop) + 'px';
+  }
+
+  try {
+    const savedPos = JSON.parse(localStorage.getItem(POS_KEY));
+    if (savedPos && typeof savedPos.left === 'number' && typeof savedPos.top === 'number') {
+      container.style.left = savedPos.left + 'px';
+      container.style.top = savedPos.top + 'px';
+      clampToScreen();
+    } else {
+      container.style.left = (window.innerWidth - 70) + 'px';
+      container.style.top = '90px';
+    }
+  } catch {
+    container.style.left = (window.innerWidth - 70) + 'px';
+    container.style.top = '90px';
+  }
+
   let isDragging = false, hasMoved = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
-  function onMouseDown(e) { if (e.target.closest('.wm-header-actions') || e.button !== 0) return; isDragging = true; hasMoved = false; startX = e.clientX; startY = e.clientY; startLeft = container.getBoundingClientRect().left; startTop = container.getBoundingClientRect().top; fab.style.cursor = 'grabbing'; document.getElementById('wm-sorter-header').style.cursor = 'grabbing'; e.preventDefault(); }
-  fab.addEventListener('mousedown', onMouseDown); document.getElementById('wm-sorter-header').addEventListener('mousedown', onMouseDown);
-  window.addEventListener('mousemove', (e) => { if (!isDragging) return; if (Math.abs(e.clientX - startX) > 4 || Math.abs(e.clientY - startY) > 4) hasMoved = true; container.style.left = Math.min(Math.max(10, startLeft + (e.clientX - startX)), window.innerWidth - container.offsetWidth - 10) + 'px'; container.style.top = Math.min(Math.max(10, startTop + (e.clientY - startY)), window.innerHeight - container.offsetHeight - 10) + 'px'; });
-  window.addEventListener('mouseup', () => { isDragging = false; fab.style.cursor = 'grab'; document.getElementById('wm-sorter-header').style.cursor = 'grab'; });
-  fab.addEventListener('click', () => { if (hasMoved) return; fab.style.display = 'none'; widget.style.display = 'flex'; clampToScreen(); });
-  document.getElementById('wm-close-btn').addEventListener('click', () => { widget.style.display = 'none'; fab.style.display = 'flex'; clampToScreen(); });
-  document.getElementById('wm-clear-cache-btn').addEventListener('click', () => { memoryCache = {}; localStorage.removeItem(CACHE_KEY); trackerTotalEl.innerText = '0 Ⓦ'; statusEl.innerText = 'Cache vidé !'; setTimeout(() => { if (statusEl.innerText === 'Cache vidé !') statusEl.innerText = 'Prêt'; }, 2000); });
-  window.addEventListener('resize', clampToScreen);
+
+  function onMouseDown(e) {
+    if (e.target.closest('.wm-header-actions') || e.button !== 0) return;
+    isDragging = true;
+    hasMoved = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    const rect = container.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+    fab.style.cursor = 'grabbing';
+    headerEl.style.cursor = 'grabbing';
+    e.preventDefault();
+  }
+
+  fab.addEventListener('mousedown', onMouseDown);
+  headerEl.addEventListener('mousedown', onMouseDown);
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    if (Math.abs(e.clientX - startX) > 4 || Math.abs(e.clientY - startY) > 4) hasMoved = true;
+    container.style.left = Math.min(Math.max(10, startLeft + (e.clientX - startX)), window.innerWidth - container.offsetWidth - 10) + 'px';
+    container.style.top = Math.min(Math.max(10, startTop + (e.clientY - startY)), window.innerHeight - container.offsetHeight - 10) + 'px';
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    fab.style.cursor = 'grab';
+    headerEl.style.cursor = 'grab';
+    if (hasMoved) savePosition();
+  });
+
+  fab.addEventListener('click', () => {
+    if (hasMoved) return;
+    fab.style.display = 'none';
+    widget.style.display = 'flex';
+    localStorage.setItem(OPEN_STATE_KEY, 'true');
+    clampToScreen();
+    savePosition();
+  });
+
+  document.getElementById('wm-close-btn').addEventListener('click', () => {
+    widget.style.display = 'none';
+    fab.style.display = 'flex';
+    localStorage.setItem(OPEN_STATE_KEY, 'false');
+    clampToScreen();
+    savePosition();
+  });
+
+  document.getElementById('wm-clear-cache-btn').addEventListener('click', () => {
+    memoryCache = {};
+    localStorage.removeItem(CACHE_KEY);
+    trackerTotalEl.innerText = '0 Ⓦ';
+    statusEl.innerText = 'Cache vidé !';
+    setTimeout(() => { if (statusEl.innerText === 'Cache vidé !') statusEl.innerText = 'Prêt'; }, 2000);
+  });
+
+  window.addEventListener('resize', () => {
+    clampToScreen();
+    savePosition();
+  });
 
   let currentMode = '';
   function updateWidgetMode() {
     const path = window.location.pathname;
     if (path.includes('/collection')) {
-      if (currentMode !== 'collection') { panelCollection.style.display = 'flex'; panelPulls.style.display = 'none'; headerTitle.innerHTML = `${iconCollection} Tri de Collection`; fab.innerHTML = iconCollection; currentMode = 'collection'; statusEl.innerText = 'Prêt'; }
+      if (currentMode !== 'collection') {
+        panelCollection.style.display = 'flex';
+        panelPulls.style.display = 'none';
+        headerTitle.innerHTML = `${iconCollection} Tri de Collection`;
+        fab.innerHTML = iconCollection;
+        currentMode = 'collection';
+        statusEl.innerText = 'Prêt';
+      }
     } else if (path.includes('/pulls')) {
-      if (currentMode !== 'pulls') { panelCollection.style.display = 'none'; panelPulls.style.display = 'flex'; headerTitle.innerHTML = `${iconPulls} Ouverture Rapide`; fab.innerHTML = iconPulls; currentMode = 'pulls'; statusEl.innerText = 'Prêt'; }
+      if (currentMode !== 'pulls') {
+        panelCollection.style.display = 'none';
+        panelPulls.style.display = 'flex';
+        headerTitle.innerHTML = `${iconPulls} Ouverture Rapide`;
+        fab.innerHTML = iconPulls;
+        currentMode = 'pulls';
+        statusEl.innerText = 'Prêt';
+      }
     } else {
-      if (currentMode !== 'hidden') { panelCollection.style.display = 'none'; panelPulls.style.display = 'none'; headerTitle.innerHTML = `WikiMasters Tools`; fab.innerHTML = `⚙️`; currentMode = 'hidden'; }
+      if (currentMode !== 'hidden') {
+        panelCollection.style.display = 'none';
+        panelPulls.style.display = 'none';
+        headerTitle.innerHTML = `WikiMasters Tools`;
+        fab.innerHTML = `⚙️`;
+        currentMode = 'hidden';
+      }
     }
   }
   setInterval(updateWidgetMode, 500);
+  updateWidgetMode();
 
   // --- 2. NAVIGATION RAPIDE AU CLAVIER SUR /PULLS ---
   function triggerClick(btn) {
@@ -128,7 +244,6 @@
     if (e.key === 'ArrowRight') {
       e.preventDefault();
 
-      // 1. Cherche la flèche droite exacte via son tracé SVG ou sa classe w-12 h-12 rounded-full
       const rightPoly = document.querySelector('button svg polyline[points="9 18 15 12 9 6"]');
       let rightArrowBtn = rightPoly ? rightPoly.closest('button') : null;
 
@@ -137,18 +252,15 @@
         if (roundBtns.length > 0) rightArrowBtn = roundBtns[roundBtns.length - 1];
       }
 
-      // Si la flèche droite est présente et active (cartes 1 à 4), on passe à la carte suivante
       if (rightArrowBtn && !rightArrowBtn.disabled) {
         triggerClick(rightArrowBtn);
         return;
       }
 
-      // 2. Si on est sur la 5e carte (flèche désactivée), on clique sur "Continuer"
       const allSiteBtns = Array.from(document.querySelectorAll('button')).filter(b => !container.contains(b));
       const continuerBtn = allSiteBtns.find(b => b.textContent.trim().toLowerCase() === 'continuer');
       if (continuerBtn && !continuerBtn.disabled) {
         triggerClick(continuerBtn);
-        // Enchaîne automatiquement sur le bouton "Ouvrir" dès qu'il réapparaît à l'écran
         setTimeout(() => {
           const nextOuvrirBtn = Array.from(document.querySelectorAll('button'))
             .filter(b => !container.contains(b))
@@ -160,7 +272,6 @@
         return;
       }
 
-      // 3. Si aucun paquet n'est en cours d'ouverture, on clique sur "Ouvrir"
       const ouvrirBtn = allSiteBtns.find(b => b.textContent.trim().toLowerCase() === 'ouvrir');
       if (ouvrirBtn && !ouvrirBtn.disabled) {
         triggerClick(ouvrirBtn);
@@ -183,7 +294,7 @@
     }
   }, true);
 
-  // --- 3. LOGIQUE TRI DE COLLECTION (Inchangée) ---
+  // --- 3. LOGIQUE TRI DE COLLECTION ---
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   function findCardInfoInObject(obj, visited = new Set(), depth = 0) { if (!obj || typeof obj !== 'object' || depth > 8 || visited.has(obj) || Array.isArray(obj)) return null; visited.add(obj); if (typeof obj.card_id === 'string' && UUID_REGEX.test(obj.card_id)) return { cardId: obj.card_id, rarity: (obj.card && obj.card.rarity) || obj.rarity || null }; if (obj.card && typeof obj.card === 'object' && typeof obj.card.id === 'string' && UUID_REGEX.test(obj.card.id)) return { cardId: obj.card.id, rarity: obj.card.rarity || obj.rarity || null }; if (typeof obj.id === 'string' && UUID_REGEX.test(obj.id) && obj.card_id === undefined && (obj.atk !== undefined || obj.def !== undefined || obj.rarity !== undefined)) return { cardId: obj.id, rarity: obj.rarity || null }; for (const key of Object.keys(obj)) { if (key.startsWith('_') || key === 'children' || key === 'ref') continue; const found = findCardInfoInObject(obj[key], visited, depth + 1); if (found) return found; } return null; }
   function detectRarityFromDOM(cardEl) { const validRarities = ['UR', 'SR', 'PC', 'L', 'R', 'C']; const badges = cardEl.querySelectorAll('span, div'); for (const b of badges) { if (b.classList && b.classList.contains('wm-price-tag')) continue; const txt = (b.textContent || '').trim().toUpperCase(); if (validRarities.includes(txt)) return txt; } return null; }
